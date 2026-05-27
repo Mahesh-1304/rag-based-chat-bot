@@ -707,3 +707,5 @@ For issues or questions:
 ## 👤 Author
 
 Created as a production-ready RAG system. See ARCHITECTURE_ANALYSIS.md for detailed technical analysis.
+#   r a g - b a s e d - c h a t - b o t  
+ 
