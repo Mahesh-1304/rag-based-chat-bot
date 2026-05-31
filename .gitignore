@@ -1,3 +1,13 @@
-models/
-*.gguf
 .venv/
+__pycache__/
+*.pyc
+.env
+*.faiss
+*.json in vector_store/
+data/raw_docs/*.pdf
+data/raw_docs/*.docx
+data/processed_docs/
+logs/
+models/
+*.egg-info/
+.DS_Store
