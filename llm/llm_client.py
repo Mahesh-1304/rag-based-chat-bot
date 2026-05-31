@@ -1,65 +1,50 @@
-﻿import os
-import logging
-from typing import Optional
+﻿import logging
+from llm.prompt_templates import SYSTEM_PROMPT
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+
 def generate_answer(context: str, query: str) -> str:
-    """
-    Generate answer using OpenAI API.
-    
-    Falls back to a simple rule-based answer if API key is not configured.
-    """
-    api_key = os.getenv("OPENAI_API_KEY")
-    
-    if not api_key:
-        logger.warning("OPENAI_API_KEY not set. Using fallback answer.")
-        return fallback_answer(context, query)
-    
     try:
         from openai import OpenAI
-        
-        client = OpenAI(api_key=api_key)
-        
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a document-based assistant. Answer ONLY using the provided context. If the answer is not in the context, say 'Not found in documents.'"
-                },
-                {
-                    "role": "user",
-                    "content": f"Context:\n{context}\n\nQuestion: {query}\n\nAnswer:"
-                }
-            ],
-            max_tokens=256,
-            temperature=0.0
+
+        client = OpenAI(
+            base_url=settings.OLLAMA_BASE_URL,
+            api_key="ollama",
         )
-        
-        return response.choices[0].message.content.strip()
-    
+
+        user_message = (
+            f"Use the following context to answer the question.\n\n"
+            f"CONTEXT:\n{context}\n\n"
+            f"QUESTION: {query}\n\n"
+            f"ANSWER (based only on the context above):"
+        )
+
+        response = client.chat.completions.create(
+            model=settings.OLLAMA_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            max_tokens=settings.LLM_MAX_TOKENS,
+            temperature=settings.LLM_TEMPERATURE,
+        )
+
+        answer = response.choices[0].message.content.strip()
+        logger.info(f"Ollama responded: {answer[:80]}...")
+        return answer
+
     except Exception as e:
-        logger.error(f"OpenAI API error: {e}")
-        return fallback_answer(context, query)
+        logger.error(f"Ollama request failed: {e}")
+        return _fallback_answer(context, query)
 
 
-def fallback_answer(context: str, query: str) -> str:
-    """
-    Fallback answer when OpenAI API is not available.
-    Returns a simple response based on context.
-    """
+def _fallback_answer(context: str, query: str) -> str:
     if not context or not context.strip():
         return "Not found in documents."
-    
-    # Simple heuristic: if query words are in context, return it
     query_words = set(query.lower().split())
-    context_lower = context.lower()
-    
-    # Count matching words
-    matches = sum(1 for word in query_words if word in context_lower)
-    
+    matches = sum(1 for word in query_words if word in context.lower())
     if matches > 0:
-        return f"Based on the documents: {context[:300]}..."
-    else:
-        return "Not found in documents."
+        return f"Based on the documents: {context[:400]}..."
+    return "Not found in documents."
